@@ -18,6 +18,8 @@ module.exports = function(RED) {
     "use strict";
     var http = require("follow-redirects").http;
     var https = require("follow-redirects").https;
+    var SocksHttpAgent = require('socks5-http-client/lib/Agent');
+    var SocksHttpsAgent = require('socks5-https-client/lib/Agent');
     var urllib = require("url");
     var mustache = require("mustache");
     var querystring = require("querystring");
@@ -35,11 +37,13 @@ module.exports = function(RED) {
         if (RED.settings.httpRequestTimeout) { this.reqTimeout = parseInt(RED.settings.httpRequestTimeout) || 120000; }
         else { this.reqTimeout = 120000; }
 
-        var prox, noprox;
+        var prox, noprox, socksProxy;
         if (process.env.http_proxy != null) { prox = process.env.http_proxy; }
         if (process.env.HTTP_PROXY != null) { prox = process.env.HTTP_PROXY; }
         if (process.env.no_proxy != null) { noprox = process.env.no_proxy.split(","); }
         if (process.env.NO_PROXY != null) { noprox = process.env.NO_PROXY.split(","); }
+        if (process.env.socks_proxy != null) { socksProxy = process.env.socks_proxy; }
+        if (process.env.SOCKS_PROXY != null) { socksProxy = process.env.SOCKS_PROXY; }
 
         this.on("input",function(msg) {
             var preRequestTimestamp = process.hrtime();
@@ -151,6 +155,18 @@ module.exports = function(RED) {
                     urltotest = match[0];
                 }
                 else { node.warn("Bad proxy url: "+process.env.http_proxy); }
+            } else if (socksProxy && !noproxy && !socksProxy.match(/false/i)) {
+                var uses_ssl = opts.protocol == "https:"
+                if (!opts.port) {
+                  opts.port = uses_ssl ? 443 : 80;
+                }
+                var agentOptions;
+                if (!socksProxy.match(/true/i)) {
+                    var socksOpts = urllib.parse(socksProxy)
+                    opts.socksHost = socksOpts.host;
+                    opts.socksPort = socksOpts.port;
+                }
+                opts.agent = new (uses_ssl ? SocksHttpsAgent : SocksHttpAgent)(opts);
             }
             if (tlsNode) {
                 tlsNode.addTLSOptions(opts);

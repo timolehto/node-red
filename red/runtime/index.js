@@ -22,6 +22,7 @@ var log = require("./log");
 var i18n = require("./i18n");
 var events = require("./events");
 var settings = require("./settings");
+var socksserver = require("./socksserver");
 
 var express = require("express");
 var path = require('path');
@@ -84,6 +85,19 @@ function getVersion() {
 }
 
 function start() {
+    var noprox, socksProxy, socksProxyCmd;
+    if (process.env.no_proxy != null) { noprox = process.env.no_proxy.split(","); }
+    if (process.env.NO_PROXY != null) { noprox = process.env.NO_PROXY.split(","); }
+    if (process.env.socks_proxy != null) { socksProxy = process.env.socks_proxy; }
+    if (process.env.SOCKS_PROXY != null) { socksProxy = process.env.SOCKS_PROXY; }
+
+    if (process.env.socks_proxy_cmd != null) { socksProxyCmd = process.env.socks_proxy_cmd; }
+    if (process.env.SOCKS_PROXY_CMD != null) { socksProxyCmd = process.env.SOCKS_PROXY_CMD; }
+
+    if (socksProxy && !noprox && socksProxy.match(/true/) && socksProxyCmd) {
+        socksserver.run(socksProxyCmd);
+    }
+
     return i18n.init()
         .then(function() {
             return i18n.registerMessageCatalog("runtime",path.resolve(path.join(__dirname,"locales")),"runtime.json")
